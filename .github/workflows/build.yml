@@ -13,7 +13,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Install XcodeGen
       run: brew install xcodegen
@@ -43,7 +43,7 @@ jobs:
         echo "IPA successfully packaged at build/LinkRelay.ipa"
 
     - name: Upload IPA Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: LinkRelay-Unsigned
         path: build/LinkRelay.ipa
