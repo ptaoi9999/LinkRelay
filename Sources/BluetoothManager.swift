@@ -176,7 +176,7 @@ extension BluetoothManager: CBCentralManagerDelegate {
         }
     }
     
-    public func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi NSNumber) {
+    public func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi: NSNumber) {
         // Prevent infinite loops or spam
         guard !discoveredPeripherals.contains(peripheral) else { return }
         discoveredPeripherals.insert(peripheral)
