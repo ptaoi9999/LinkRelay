@@ -260,7 +260,7 @@ extension BluetoothManager: CBPeripheralManagerDelegate {
         }
     }
     
-    public func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWriteRequests requests: [CBATTRequest]) {
+    public func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
         for request in requests {
             if let data = request.value {
                 handleIncomingPayload(data)
