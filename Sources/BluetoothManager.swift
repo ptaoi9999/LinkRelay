@@ -39,8 +39,13 @@ public class BluetoothManager: NSObject, ObservableObject {
         
         super.init()
         
-        self.centralManager = CBCentralManager(delegate: self, queue: nil)
-        self.peripheralManager = CBPeripheralManager(delegate: self, queue: nil)
+        let central = CBCentralManager(delegate: nil, queue: nil)
+        self.centralManager = central
+        central.delegate = self
+        
+        let peripheral = CBPeripheralManager(delegate: nil, queue: nil)
+        self.peripheralManager = peripheral
+        peripheral.delegate = self
     }
     
     public func addLog(_ message: String) {
@@ -183,7 +188,7 @@ extension BluetoothManager: CBCentralManagerDelegate {
         addLog("Discovered peer: \(peripheral.name ?? "Unknown Device")")
         
         // Connect to read characteristics
-        centralManager.connect(peripheral, options: nil)
+        central.connect(peripheral, options: nil)
     }
     
     public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
@@ -248,7 +253,7 @@ extension BluetoothManager: CBPeripheralManagerDelegate {
             let service = CBMutableService(type: Self.serviceUUID, primary: true)
             service.characteristics = [characteristic]
             
-            peripheralManager.add(service)
+            peripheral.add(service)
             self.transferCharacteristic = characteristic
             
             startAdvertising()
@@ -264,7 +269,7 @@ extension BluetoothManager: CBPeripheralManagerDelegate {
         for request in requests {
             if let data = request.value {
                 handleIncomingPayload(data)
-                peripheralManager.respond(to: request, withResult: .success)
+                peripheral.respond(to: request, withResult: .success)
             }
         }
     }
