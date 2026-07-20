@@ -201,6 +201,9 @@ struct ContentView: View {
             .navigationBarHidden(true)
         }
         .navigationViewStyle(StackNavigationViewStyle())
+        .onAppear {
+            btManager.setup()
+        }
     }
 }
 

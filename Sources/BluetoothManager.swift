@@ -16,8 +16,8 @@ public class BluetoothManager: NSObject, ObservableObject {
     @Published public var logs: [String] = []
     
     // Core Bluetooth Objects
-    private var centralManager: CBCentralManager!
-    private var peripheralManager: CBPeripheralManager!
+    private var centralManager: CBCentralManager?
+    private var peripheralManager: CBPeripheralManager?
     private var transferCharacteristic: CBMutableCharacteristic?
     
     // Message Store reference
@@ -34,10 +34,14 @@ public class BluetoothManager: NSObject, ObservableObject {
     public init(messageStore: MessageStore) {
         self.messageStore = messageStore
         // Simple 256-bit key derived from a static phrase for encryption/decryption
-        let keyData = "LinkRelayMeshPreSharedKey12345678".data(using: .utf8)!
-        self.symmetricKey = SymmetricKey(data: SHA256.hash(data: keyData))
+        let keyData = "LinkRelayMeshPreSharedKey1234567".data(using: .utf8)! // Exactly 32 bytes
+        self.symmetricKey = SymmetricKey(data: keyData)
         
         super.init()
+    }
+    
+    public func setup() {
+        guard centralManager == nil && peripheralManager == nil else { return }
         
         let central = CBCentralManager(delegate: nil, queue: nil)
         self.centralManager = central
@@ -46,6 +50,8 @@ public class BluetoothManager: NSObject, ObservableObject {
         let peripheral = CBPeripheralManager(delegate: nil, queue: nil)
         self.peripheralManager = peripheral
         peripheral.delegate = self
+        
+        addLog("Bluetooth managers initialized lazily.")
     }
     
     public func addLog(_ message: String) {
@@ -63,32 +69,32 @@ public class BluetoothManager: NSObject, ObservableObject {
     // MARK: - Actions
     
     public func startScanning() {
-        guard centralManager.state == .poweredOn else { return }
+        guard let cm = centralManager, cm.state == .poweredOn else { return }
         discoveredPeripherals.removeAll()
-        centralManager.scanForPeripherals(withServices: [Self.serviceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
+        cm.scanForPeripherals(withServices: [Self.serviceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
         isScanning = true
         addLog("Started scanning...")
     }
     
     public func stopScanning() {
-        centralManager.stopScan()
+        centralManager?.stopScan()
         isScanning = false
         addLog("Stopped scanning.")
     }
     
     public func startAdvertising() {
-        guard peripheralManager.state == .poweredOn else { return }
+        guard let pm = peripheralManager, pm.state == .poweredOn else { return }
         let advertisementData: [String: Any] = [
             CBAdvertisementDataServiceUUIDsKey: [Self.serviceUUID],
             CBAdvertisementDataLocalNameKey: "LinkRelayNode"
         ]
-        peripheralManager.startAdvertising(advertisementData)
+        pm.startAdvertising(advertisementData)
         isAdvertising = true
         addLog("Started advertising...")
     }
     
     public func stopAdvertising() {
-        peripheralManager.stopAdvertising()
+        peripheralManager?.stopAdvertising()
         isAdvertising = false
         addLog("Stopped advertising.")
     }
@@ -122,7 +128,7 @@ public class BluetoothManager: NSObject, ObservableObject {
     private func broadcastPayload(_ data: Data) {
         // Update local characteristic value so connecting peers can read/write to it
         if let char = transferCharacteristic {
-            peripheralManager.updateValue(data, for: char, onSubscribedCentrals: nil)
+            _ = peripheralManager?.updateValue(data, for: char, onSubscribedCentrals: nil)
         }
         // Save payload for new connections
         pendingOutgoingPayloads.append(data)
