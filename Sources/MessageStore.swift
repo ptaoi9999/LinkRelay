@@ -6,18 +6,22 @@ public struct RelayMessage: Identifiable, Codable, Hashable {
     public let timestamp: Date
     public let sender: String
     public var hopCount: Int
+    public let channel: String // "open" or "family"
     
-    public init(id: UUID = UUID(), text: String, timestamp: Date = Date(), sender: String, hopCount: Int = 1) {
+    public init(id: UUID = UUID(), text: String, timestamp: Date = Date(), sender: String, hopCount: Int = 1, channel: String = "open") {
         self.id = id
         self.text = text
         self.timestamp = timestamp
         self.sender = sender
         self.hopCount = hopCount
+        self.channel = channel
     }
 }
 
 public class MessageStore: ObservableObject {
-    @Published public var messages: [RelayMessage] = []
+    @Published public var openMessages: [RelayMessage] = []
+    @Published public var familyMessages: [RelayMessage] = []
+    
     private var receivedIds = Set<UUID>()
     
     public init() {}
@@ -29,7 +33,11 @@ public class MessageStore: ObservableObject {
         }
         receivedIds.insert(message.id)
         DispatchQueue.main.async {
-            self.messages.append(message)
+            if message.channel == "family" {
+                self.familyMessages.append(message)
+            } else {
+                self.openMessages.append(message)
+            }
         }
         return true
     }

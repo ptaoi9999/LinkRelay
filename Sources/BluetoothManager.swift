@@ -105,8 +105,8 @@ public class BluetoothManager: NSObject, ObservableObject {
     }
     
     // Send a new local message
-    public func sendMessage(_ text: String, sender: String) {
-        let message = RelayMessage(text: text, sender: sender, hopCount: 1)
+    public func sendMessage(_ text: String, sender: String, channel: String = "open") {
+        let message = RelayMessage(text: text, sender: sender, hopCount: 1, channel: channel)
         messageStore.addMessage(message)
         encryptAndBroadcast(message)
     }
@@ -268,7 +268,7 @@ extension BluetoothManager: CBPeripheralManagerDelegate {
             // Set up BLE Service and Characteristic
             let characteristic = CBMutableCharacteristic(
                 type: Self.characteristicUUID,
-                properties: [.read, .write, .notify],
+                properties: [.read, .write, .writeWithoutResponse, .notify],
                 value: nil,
                 permissions: [.readable, .writeable]
             )
@@ -287,12 +287,39 @@ extension BluetoothManager: CBPeripheralManagerDelegate {
         }
     }
     
-    public func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
-        for request in requests {
-            if let data = request.value {
-                handleIncomingPayload(data)
+    public func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveRead request: CBATTRequest) {
+        if request.characteristic.uuid == Self.characteristicUUID {
+            if let latestPayload = pendingOutgoingPayloads.last {
+                if request.offset > latestPayload.count {
+                    peripheral.respond(to: request, withResult: .invalidOffset)
+                    return
+                }
+                request.value = latestPayload.subdata(in: request.offset..<latestPayload.count)
+                peripheral.respond(to: request, withResult: .success)
+            } else {
+                request.value = Data()
                 peripheral.respond(to: request, withResult: .success)
             }
+        } else {
+            peripheral.respond(to: request, withResult: .attributeNotFound)
+        }
+    }
+    
+    public func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
+        for request in requests {
+            if request.characteristic.uuid == Self.characteristicUUID, let data = request.value {
+                handleIncomingPayload(data)
+                peripheral.respond(to: request, withResult: .success)
+            } else {
+                peripheral.respond(to: request, withResult: .success)
+            }
+        }
+    }
+    
+    public func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
+        addLog("Peer central subscribed to characteristic.")
+        if let latestPayload = pendingOutgoingPayloads.last, let char = transferCharacteristic {
+            peripheral.updateValue(latestPayload, for: char, onSubscribedCentrals: [central])
         }
     }
 }

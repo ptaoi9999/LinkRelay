@@ -6,6 +6,7 @@ struct ContentView: View {
     
     @State private var selectedTab = 0
     @State private var messageText = ""
+    @State private var familyMessageText = ""
     @State private var senderName = "User_\(Int.random(in: 1000...9999))"
     @State private var isLogsExpanded = false
     
@@ -94,7 +95,7 @@ struct ContentView: View {
                     // Messages Board
                     ScrollView {
                         LazyVStack(spacing: 12) {
-                            if messageStore.messages.isEmpty {
+                            if messageStore.openMessages.isEmpty {
                                 VStack(spacing: 12) {
                                     Image(systemName: "antenna.radiowaves.left.and.right")
                                         .font(.system(size: 40))
@@ -110,7 +111,7 @@ struct ContentView: View {
                                 }
                                 .padding(.top, 60)
                             } else {
-                                ForEach(messageStore.messages) { msg in
+                                ForEach(messageStore.openMessages) { msg in
                                     HStack {
                                         VStack(alignment: .leading, spacing: 4) {
                                             HStack {
@@ -177,7 +178,7 @@ struct ContentView: View {
         .navigationViewStyle(StackNavigationViewStyle())
     }
     
-    // MARK: - Family View (Upcoming Feature)
+    // MARK: - Family View (Active Family Group Chat)
     @ViewBuilder
     private var familyView: some View {
         NavigationView {
@@ -185,25 +186,120 @@ struct ContentView: View {
                 Color(red: 0.08, green: 0.09, blue: 0.14)
                     .ignoresSafeArea()
                 
-                VStack(spacing: 16) {
-                    Image(systemName: "house.circle.fill")
-                        .font(.system(size: 64))
-                        .foregroundColor(.blue.opacity(0.8))
+                VStack(spacing: 12) {
+                    // Header
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text("家族グループ")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                                Image(systemName: "lock.shield.fill")
+                                    .font(.subheadline)
+                                    .foregroundColor(.green)
+                            }
+                            Text("プライベート・家族専用メッシュチャット")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        Spacer()
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(btManager.isScanning || btManager.isAdvertising ? Color.green : Color.red)
+                                .frame(width: 8, height: 8)
+                            Text(btManager.isScanning || btManager.isAdvertising ? "Live Mesh" : "Offline")
+                                .font(.caption2)
+                                .foregroundColor(.gray)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.white.opacity(0.06))
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 10)
                     
-                    Text("家族グループチャット")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
+                    // Messages Board
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            if messageStore.familyMessages.isEmpty {
+                                VStack(spacing: 12) {
+                                    Image(systemName: "house.circle.fill")
+                                        .font(.system(size: 48))
+                                        .foregroundColor(.blue.opacity(0.5))
+                                    Text("家族メッセージはまだありません")
+                                        .font(.callout)
+                                        .foregroundColor(.gray)
+                                    Text("このチャンネルで送信されたメッセージは家族専用ネットワークでリレー同期されます")
+                                        .font(.caption)
+                                        .foregroundColor(.gray.opacity(0.7))
+                                        .multilineTextAlignment(.center)
+                                        .padding(.horizontal, 32)
+                                }
+                                .padding(.top, 60)
+                            } else {
+                                ForEach(messageStore.familyMessages) { msg in
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            HStack {
+                                                Text(msg.sender)
+                                                    .font(.caption)
+                                                    .fontWeight(.bold)
+                                                    .foregroundColor(.green)
+                                                Spacer()
+                                                Text("Hops: \(msg.hopCount)")
+                                                    .font(.caption2)
+                                                    .padding(.horizontal, 6)
+                                                    .padding(.vertical, 2)
+                                                    .background(Color.green.opacity(0.2))
+                                                    .cornerRadius(4)
+                                                    .foregroundColor(.green)
+                                            }
+                                            Text(msg.text)
+                                                .foregroundColor(.white)
+                                                .font(.body)
+                                        }
+                                        Spacer()
+                                    }
+                                    .padding()
+                                    .background(Color.white.opacity(0.08))
+                                    .cornerRadius(12)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
                     
-                    Text("今後実装予定のプライベート家族専用グループチャット機能です。エンドツーエンド暗号化により家族間のみで安全にメッシュ通信が行えます。")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-                    
-                    Spacer()
+                    // Message Input Bar
+                    HStack(spacing: 12) {
+                        TextField("家族メッセージを入力...", text: $familyMessageText)
+                            .textFieldStyle(PlainTextFieldStyle())
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .background(Color.white.opacity(0.08))
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            )
+                        
+                        Button(action: {
+                            guard !familyMessageText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                            btManager.sendMessage(familyMessageText, sender: senderName, channel: "family")
+                            familyMessageText = ""
+                        }) {
+                            Image(systemName: "paperplane.fill")
+                                .foregroundColor(.white)
+                                .padding(12)
+                                .background(Color.green)
+                                .clipShape(Circle())
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 12)
                 }
-                .padding(.top, 80)
             }
             .navigationBarHidden(true)
         }
