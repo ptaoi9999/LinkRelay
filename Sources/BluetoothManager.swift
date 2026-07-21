@@ -67,7 +67,10 @@ public class BluetoothManager: NSObject, ObservableObject {
     
     public func startScanning() {
         DispatchQueue.main.async {
-            guard let cm = self.centralManager, cm.state == .poweredOn else { return }
+            guard let cm = self.centralManager, cm.state == .poweredOn else {
+                self.isScanning = false
+                return
+            }
             self.discoveredPeripherals.removeAll()
             cm.scanForPeripherals(withServices: [Self.serviceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
             self.isScanning = true
@@ -85,7 +88,10 @@ public class BluetoothManager: NSObject, ObservableObject {
     
     public func startAdvertising() {
         DispatchQueue.main.async {
-            guard let pm = self.peripheralManager, pm.state == .poweredOn else { return }
+            guard let pm = self.peripheralManager, pm.state == .poweredOn else {
+                self.isAdvertising = false
+                return
+            }
             let advertisementData: [String: Any] = [
                 CBAdvertisementDataServiceUUIDsKey: [Self.serviceUUID],
                 CBAdvertisementDataLocalNameKey: "LinkRelayNode"
@@ -191,15 +197,19 @@ public class BluetoothManager: NSObject, ObservableObject {
 // MARK: - CBCentralManagerDelegate
 extension BluetoothManager: CBCentralManagerDelegate {
     public func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        switch central.state {
-        case .poweredOn:
-            addLog("Central state: Powered On")
-            startScanning()
-        case .poweredOff:
-            addLog("Central state: Powered Off")
-            stopScanning()
-        default:
-            addLog("Central state changed: \(central.state.rawValue)")
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            switch central.state {
+            case .poweredOn:
+                self.addLog("Central state: Powered On")
+                self.startScanning()
+            case .poweredOff:
+                self.addLog("Central state: Powered Off")
+                self.stopScanning()
+            default:
+                self.addLog("Central state changed: \(central.state.rawValue)")
+                self.isScanning = false
+            }
         }
     }
     
@@ -261,29 +271,33 @@ extension BluetoothManager: CBPeripheralDelegate {
 // MARK: - CBPeripheralManagerDelegate
 extension BluetoothManager: CBPeripheralManagerDelegate {
     public func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
-        switch peripheral.state {
-        case .poweredOn:
-            addLog("Peripheral state: Powered On")
-            
-            // Set up BLE Service and Characteristic
-            let characteristic = CBMutableCharacteristic(
-                type: Self.characteristicUUID,
-                properties: [.read, .write, .writeWithoutResponse, .notify],
-                value: nil,
-                permissions: [.readable, .writeable]
-            )
-            let service = CBMutableService(type: Self.serviceUUID, primary: true)
-            service.characteristics = [characteristic]
-            
-            peripheral.add(service)
-            self.transferCharacteristic = characteristic
-            
-            startAdvertising()
-        case .poweredOff:
-            addLog("Peripheral state: Powered Off")
-            stopAdvertising()
-        default:
-            addLog("Peripheral state changed: \(peripheral.state.rawValue)")
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            switch peripheral.state {
+            case .poweredOn:
+                self.addLog("Peripheral state: Powered On")
+                
+                // Set up BLE Service and Characteristic
+                let characteristic = CBMutableCharacteristic(
+                    type: Self.characteristicUUID,
+                    properties: [.read, .write, .writeWithoutResponse, .notify],
+                    value: nil,
+                    permissions: [.readable, .writeable]
+                )
+                let service = CBMutableService(type: Self.serviceUUID, primary: true)
+                service.characteristics = [characteristic]
+                
+                peripheral.add(service)
+                self.transferCharacteristic = characteristic
+                
+                self.startAdvertising()
+            case .poweredOff:
+                self.addLog("Peripheral state: Powered Off")
+                self.stopAdvertising()
+            default:
+                self.addLog("Peripheral state changed: \(peripheral.state.rawValue)")
+                self.isAdvertising = false
+            }
         }
     }
     
