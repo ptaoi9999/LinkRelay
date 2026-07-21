@@ -40,17 +40,15 @@ public class BluetoothManager: NSObject, ObservableObject {
     }
     
     public func setup() {
-        guard centralManager == nil && peripheralManager == nil else { return }
-        
-        let central = CBCentralManager(delegate: nil, queue: nil)
-        self.centralManager = central
-        central.delegate = self
-        
-        let peripheral = CBPeripheralManager(delegate: nil, queue: nil)
-        self.peripheralManager = peripheral
-        peripheral.delegate = self
-        
-        addLog("Bluetooth managers initialized lazily.")
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            guard self.centralManager == nil && self.peripheralManager == nil else { return }
+            
+            self.centralManager = CBCentralManager(delegate: self, queue: nil)
+            self.peripheralManager = CBPeripheralManager(delegate: self, queue: nil)
+            
+            self.addLog("Bluetooth managers initialized.")
+        }
     }
     
     public func addLog(_ message: String) {
