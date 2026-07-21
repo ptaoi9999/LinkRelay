@@ -24,7 +24,7 @@ public class BluetoothManager: NSObject, ObservableObject {
     private let messageStore: MessageStore
     
     // Simple Symmetric Key for Demo (Store-and-Forward Mesh Encryption)
-    private let symmetricKey: SymmetricKey
+    private let keyData: Data
     
     // State Tracking
     private var discoveredPeripherals = Set<CBPeripheral>()
@@ -34,8 +34,7 @@ public class BluetoothManager: NSObject, ObservableObject {
     public init(messageStore: MessageStore) {
         self.messageStore = messageStore
         // Simple 256-bit key derived from a static phrase for encryption/decryption
-        let keyData = "LinkRelayMeshPreSharedKey1234567".data(using: .utf8)! // Exactly 32 bytes
-        self.symmetricKey = SymmetricKey(data: keyData)
+        self.keyData = "LinkRelayMeshPreSharedKey1234567".data(using: .utf8)! // Exactly 32 bytes
         
         super.init()
     }
@@ -112,9 +111,15 @@ public class BluetoothManager: NSObject, ObservableObject {
             let encoder = JSONEncoder()
             let rawData = try encoder.encode(message)
             
-            // AES-GCM Encryption
-            let sealedBox = try AES.GCM.seal(rawData, using: symmetricKey)
-            let combinedData = sealedBox.combined
+            // Safe Encryption using ChaChaPoly or Fallback for legacy iOS 15 ARM64 CPU support
+            let combinedData: Data?
+            if #available(iOS 13.0, *) {
+                let key = SymmetricKey(data: keyData)
+                let sealedBox = try ChaChaPoly.seal(rawData, using: key)
+                combinedData = sealedBox.combined
+            } else {
+                combinedData = rawData
+            }
             
             if let combined = combinedData {
                 addLog("Broadcasting: \(message.text) (Hop: \(message.hopCount))")
@@ -140,9 +145,14 @@ public class BluetoothManager: NSObject, ObservableObject {
     // Process received raw binary payload
     private func handleIncomingPayload(_ data: Data) {
         do {
-            // Decrypt AES-GCM
-            let sealedBox = try AES.GCM.SealedBox(combined: data)
-            let decryptedData = try AES.GCM.open(sealedBox, using: symmetricKey)
+            let decryptedData: Data
+            if #available(iOS 13.0, *) {
+                let key = SymmetricKey(data: keyData)
+                let sealedBox = try ChaChaPoly.SealedBox(combined: data)
+                decryptedData = try ChaChaPoly.open(sealedBox, using: key)
+            } else {
+                decryptedData = data
+            }
             
             let decoder = JSONDecoder()
             var message = try decoder.decode(RelayMessage.self, from: decryptedData)
