@@ -55,7 +55,8 @@ struct ContentView: View {
     }
     
     // MARK: - Open Channel View
-    private var openChannelView: View {
+    @ViewBuilder
+    private var openChannelView: some View {
         NavigationView {
             ZStack {
                 Color(red: 0.08, green: 0.09, blue: 0.14)
@@ -177,7 +178,8 @@ struct ContentView: View {
     }
     
     // MARK: - Family View (Upcoming Feature)
-    private var familyView: View {
+    @ViewBuilder
+    private var familyView: some View {
         NavigationView {
             ZStack {
                 Color(red: 0.08, green: 0.09, blue: 0.14)
@@ -209,7 +211,8 @@ struct ContentView: View {
     }
     
     // MARK: - Blog View (Upcoming Store and Forward Mini Blog)
-    private var blogView: View {
+    @ViewBuilder
+    private var blogView: some View {
         NavigationView {
             ZStack {
                 Color(red: 0.08, green: 0.09, blue: 0.14)
@@ -241,7 +244,8 @@ struct ContentView: View {
     }
     
     // MARK: - Settings View
-    private var settingsView: View {
+    @ViewBuilder
+    private var settingsView: some View {
         NavigationView {
             ZStack {
                 Color(red: 0.08, green: 0.09, blue: 0.14)
