@@ -1,6 +1,6 @@
 name: LinkRelay
 options:
-  bundleIdPrefix: com.example
+  bundleIdPrefix: com.aoi
 targets:
   LinkRelay:
     type: application
