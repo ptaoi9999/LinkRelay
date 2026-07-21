@@ -68,34 +68,42 @@ public class BluetoothManager: NSObject, ObservableObject {
     // MARK: - Actions
     
     public func startScanning() {
-        guard let cm = centralManager, cm.state == .poweredOn else { return }
-        discoveredPeripherals.removeAll()
-        cm.scanForPeripherals(withServices: [Self.serviceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
-        isScanning = true
-        addLog("Started scanning...")
+        DispatchQueue.main.async {
+            guard let cm = self.centralManager, cm.state == .poweredOn else { return }
+            self.discoveredPeripherals.removeAll()
+            cm.scanForPeripherals(withServices: [Self.serviceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
+            self.isScanning = true
+            self.addLog("Started scanning...")
+        }
     }
     
     public func stopScanning() {
-        centralManager?.stopScan()
-        isScanning = false
-        addLog("Stopped scanning.")
+        DispatchQueue.main.async {
+            self.centralManager?.stopScan()
+            self.isScanning = false
+            self.addLog("Stopped scanning.")
+        }
     }
     
     public func startAdvertising() {
-        guard let pm = peripheralManager, pm.state == .poweredOn else { return }
-        let advertisementData: [String: Any] = [
-            CBAdvertisementDataServiceUUIDsKey: [Self.serviceUUID],
-            CBAdvertisementDataLocalNameKey: "LinkRelayNode"
-        ]
-        pm.startAdvertising(advertisementData)
-        isAdvertising = true
-        addLog("Started advertising...")
+        DispatchQueue.main.async {
+            guard let pm = self.peripheralManager, pm.state == .poweredOn else { return }
+            let advertisementData: [String: Any] = [
+                CBAdvertisementDataServiceUUIDsKey: [Self.serviceUUID],
+                CBAdvertisementDataLocalNameKey: "LinkRelayNode"
+            ]
+            pm.startAdvertising(advertisementData)
+            self.isAdvertising = true
+            self.addLog("Started advertising...")
+        }
     }
     
     public func stopAdvertising() {
-        peripheralManager?.stopAdvertising()
-        isAdvertising = false
-        addLog("Stopped advertising.")
+        DispatchQueue.main.async {
+            self.peripheralManager?.stopAdvertising()
+            self.isAdvertising = false
+            self.addLog("Stopped advertising.")
+        }
     }
     
     // Send a new local message

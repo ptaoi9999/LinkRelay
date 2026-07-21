@@ -1,11 +1,12 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var messageStore = MessageStore()
+    @StateObject private var messageStore: MessageStore
     @StateObject private var btManager: BluetoothManager
     
     @State private var messageText = ""
     @State private var senderName = "User_\(Int.random(in: 1000...9999))"
+    @State private var isLogsExpanded = false
     
     init() {
         let store = MessageStore()
@@ -15,7 +16,7 @@ struct ContentView: View {
     
     var body: some View {
         NavigationView {
-            ZCombineView {
+            ZStack {
                 // Background Gradient
                 LinearGradient(
                     gradient: Gradient(colors: [Color(red: 0.1, green: 0.12, blue: 0.2), Color(red: 0.05, green: 0.05, blue: 0.1)]),
@@ -168,7 +169,7 @@ struct ContentView: View {
                     .padding(.bottom, 8)
                     
                     // Active Logs Console
-                    DisclosureGroup(isExpanded: .constant(false)) {
+                    DisclosureGroup(isExpanded: $isLogsExpanded) {
                         ScrollView {
                             VStack(alignment: .leading, spacing: 4) {
                                 ForEach(btManager.logs, id: \.self) { log in
