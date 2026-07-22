@@ -111,8 +111,8 @@ public class BluetoothManager: NSObject, ObservableObject {
     }
     
     // Send a new local message
-    public func sendMessage(_ text: String, sender: String, channel: String = "open") {
-        let message = RelayMessage(text: text, sender: sender, hopCount: 1, channel: channel)
+    public func sendMessage(_ text: String, sender: String, channel: String = "open", recipient: String? = nil) {
+        let message = RelayMessage(text: text, sender: sender, hopCount: 1, channel: channel, recipient: recipient)
         messageStore.addMessage(message)
         encryptAndBroadcast(message)
     }

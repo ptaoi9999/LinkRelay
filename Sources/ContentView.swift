@@ -4,11 +4,18 @@ struct ContentView: View {
     @StateObject private var messageStore: MessageStore
     @StateObject private var btManager: BluetoothManager
     
+    @AppStorage("senderName") private var senderName = "User_\(Int.random(in: 1000...9999))"
     @State private var selectedTab = 0
     @State private var messageText = ""
     @State private var familyMessageText = ""
-    @State private var senderName = "User_\(Int.random(in: 1000...9999))"
     @State private var isLogsExpanded = false
+    
+    // DM state variables
+    @State private var isShowingScanner = false
+    @State private var isShowingMyQR = false
+    @State private var showManualInput = false
+    @State private var manualPartnerName = ""
+    @State private var selectedPartner: String? = nil
     
     init(messageStore: MessageStore = MessageStore()) {
         _messageStore = StateObject(wrappedValue: messageStore)
@@ -25,29 +32,37 @@ struct ContentView: View {
                 }
                 .tag(0)
             
-            // Tab 1: Family Group (Placeholder for upcoming family chat feature)
+            // Tab 1: DM Channel (Direct Messages)
+            dmChannelView
+                .tabItem {
+                    Image(systemName: "envelope.fill")
+                    Text("DM")
+                }
+                .tag(1)
+            
+            // Tab 2: Family Group (Placeholder for upcoming family chat feature)
             familyView
                 .tabItem {
                     Image(systemName: "house.fill")
                     Text("家族")
                 }
-                .tag(1)
+                .tag(2)
             
-            // Tab 2: Blog (Offline Store and Forward Mini Blog)
+            // Tab 3: Blog (Offline Store and Forward Mini Blog)
             blogView
                 .tabItem {
                     Image(systemName: "doc.text.image")
                     Text("ブログ")
                 }
-                .tag(2)
+                .tag(3)
             
-            // Tab 3: Settings (Relay toggle, Hop count, System Logs)
+            // Tab 4: Settings (Relay toggle, Hop count, System Logs)
             settingsView
                 .tabItem {
                     Image(systemName: "gearshape.fill")
                     Text("設定")
                 }
-                .tag(3)
+                .tag(4)
         }
         .accentColor(.blue)
         .onAppear {
@@ -473,5 +488,409 @@ struct ContentView: View {
             .navigationBarHidden(true)
         }
         .navigationViewStyle(StackNavigationViewStyle())
+    }
+    
+    // MARK: - DM Channel View
+    @ViewBuilder
+    private var dmChannelView: some View {
+        NavigationView {
+            ZStack {
+                Color(red: 0.08, green: 0.09, blue: 0.14)
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 12) {
+                    // Header
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("ダイレクトメッセージ (DM)")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                            Text("QRコードでつながる安全なDM")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        Spacer()
+                        
+                        // Actions
+                        HStack(spacing: 8) {
+                            Button(action: { isShowingMyQR = true }) {
+                                Image(systemName: "qrcode")
+                                    .foregroundColor(.white)
+                                    .padding(8)
+                                    .background(Color.white.opacity(0.1))
+                                    .clipShape(Circle())
+                            }
+                            
+                            Button(action: { isShowingScanner = true }) {
+                                Image(systemName: "qrcode.viewfinder")
+                                    .foregroundColor(.white)
+                                    .padding(8)
+                                    .background(Color.blue)
+                                    .clipShape(Circle())
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 10)
+                    
+                    // Partners List
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            let partners = dmPartners
+                            if partners.isEmpty {
+                                VStack(spacing: 16) {
+                                    Image(systemName: "envelope.badge.shield.half.filled")
+                                        .font(.system(size: 56))
+                                        .foregroundColor(.gray.opacity(0.4))
+                                    Text("DMを開始しましょう")
+                                        .font(.callout)
+                                        .foregroundColor(.gray)
+                                    Text("右上のスキャンボタンから相手のQRコードをスキャンするか、自分のQRコードを提示してDMを開始します。")
+                                        .font(.caption)
+                                        .foregroundColor(.gray.opacity(0.7))
+                                        .multilineTextAlignment(.center)
+                                        .padding(.horizontal, 32)
+                                    
+                                    Button("手動でユーザーIDを入力") {
+                                        showManualInput = true
+                                    }
+                                    .foregroundColor(.blue)
+                                    .font(.subheadline)
+                                    .padding(.top, 8)
+                                }
+                                .padding(.top, 60)
+                            } else {
+                                ForEach(partners, id: \.self) { partner in
+                                    Button(action: { selectedPartner = partner }) {
+                                        HStack {
+                                            Circle()
+                                                .fill(Color.blue.opacity(0.2))
+                                                .frame(width: 44, height: 44)
+                                                .overlay(
+                                                    Image(systemName: "person.fill")
+                                                        .foregroundColor(.blue)
+                                                )
+                                            
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text(partner)
+                                                    .fontWeight(.semibold)
+                                                    .foregroundColor(.white)
+                                                
+                                                if let lastMsg = lastMessage(with: partner) {
+                                                    Text(lastMsg.text)
+                                                        .font(.caption)
+                                                        .foregroundColor(.gray)
+                                                        .lineLimit(1)
+                                                }
+                                            }
+                                            
+                                            Spacer()
+                                            
+                                            Image(systemName: "chevron.right")
+                                                .foregroundColor(.gray)
+                                                .font(.caption)
+                                        }
+                                        .padding()
+                                        .background(Color.white.opacity(0.06))
+                                        .cornerRadius(16)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+            }
+            .navigationBarHidden(true)
+            .sheet(isPresented: $isShowingScanner) {
+                QRCodeScannerView { scannedName in
+                    isShowingScanner = false
+                    if !scannedName.isEmpty {
+                        selectedPartner = scannedName
+                    }
+                }
+            }
+            .sheet(isPresented: $isShowingMyQR) {
+                MyQRView(myId: senderName)
+            }
+            .sheet(isPresented: $showManualInput) {
+                manualInputView
+            }
+            .background(
+                NavigationLink(
+                    destination: Group {
+                        if let partner = selectedPartner {
+                            DMChatView(partnerName: partner, myName: senderName, messageStore: messageStore, btManager: btManager)
+                        }
+                    },
+                    isActive: Binding(
+                        get: { selectedPartner != nil },
+                        set: { if !$0 { selectedPartner = nil } }
+                    )
+                ) { EmptyView() }
+            )
+        }
+        .navigationViewStyle(StackNavigationViewStyle())
+    }
+    
+    private var dmPartners: [String] {
+        let allPartners = messageStore.dmMessages.compactMap { msg -> String? in
+            if msg.sender == senderName {
+                return msg.recipient
+            } else if msg.recipient == senderName {
+                return msg.sender
+            }
+            return nil
+        }
+        return Array(Set(allPartners)).sorted()
+    }
+    
+    private func lastMessage(with partner: String) -> RelayMessage? {
+        let messages = messageStore.dmMessages.filter {
+            ($0.sender == senderName && $0.recipient == partner) ||
+            ($0.sender == partner && $0.recipient == senderName)
+        }
+        return messages.sorted(by: { $0.timestamp < $1.timestamp }).last
+    }
+    
+    private var manualInputView: some View {
+        ZStack {
+            Color(red: 0.08, green: 0.09, blue: 0.14).ignoresSafeArea()
+            VStack(spacing: 20) {
+                Text("手動で宛先を入力")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                
+                TextField("相手のユーザー名 (例: User_1234)", text: $manualPartnerName)
+                    .textFieldStyle(PlainTextFieldStyle())
+                    .foregroundColor(.white)
+                    .padding()
+                    .background(Color.white.opacity(0.08))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+                    .padding(.horizontal)
+                
+                HStack(spacing: 16) {
+                    Button("キャンセル") {
+                        showManualInput = false
+                        manualPartnerName = ""
+                    }
+                    .foregroundColor(.gray)
+                    
+                    Button("チャット開始") {
+                        let trimmed = manualPartnerName.trimmingCharacters(in: .whitespaces)
+                        if !trimmed.isEmpty {
+                            showManualInput = false
+                            selectedPartner = trimmed
+                            manualPartnerName = ""
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - MyQRView
+struct MyQRView: View {
+    let myId: String
+    @Environment(\.presentationMode) var presentationMode
+    
+    var body: some View {
+        ZStack {
+            Color(red: 0.08, green: 0.09, blue: 0.14)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 24) {
+                HStack {
+                    Spacer()
+                    Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                        Image(systemName: "xmark")
+                            .foregroundColor(.white)
+                            .padding(12)
+                            .background(Color.white.opacity(0.1))
+                            .clipShape(Circle())
+                    }
+                }
+                .padding()
+                
+                Text("マイ QRコード")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                
+                Text("このQRコードを相手にスキャンしてもらうことで、DMを開始できます。")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+                
+                if let qrImage = generateQRCode(from: myId) {
+                    Image(uiImage: qrImage)
+                        .interpolation(.none)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 240, height: 240)
+                        .padding(16)
+                        .background(Color.white)
+                        .cornerRadius(20)
+                } else {
+                    Text("QRコードの生成に失敗しました")
+                        .foregroundColor(.red)
+                }
+                
+                Text("あなたのID: \(myId)")
+                    .font(.headline)
+                    .foregroundColor(.blue)
+                    .padding(.top, 8)
+                
+                Spacer()
+            }
+        }
+    }
+}
+
+// MARK: - DMChatView
+struct DMChatView: View {
+    let partnerName: String
+    let myName: String
+    @ObservedObject var messageStore: MessageStore
+    let btManager: BluetoothManager
+    
+    @State private var messageText = ""
+    @Environment(\.presentationMode) var presentationMode
+    
+    var messages: [RelayMessage] {
+        messageStore.dmMessages.filter {
+            ($0.sender == myName && $0.recipient == partnerName) ||
+            ($0.sender == partnerName && $0.recipient == myName)
+        }.sorted(by: { $0.timestamp < $1.timestamp })
+    }
+    
+    var body: some View {
+        ZStack {
+            Color(red: 0.08, green: 0.09, blue: 0.14)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 12) {
+                // Header
+                HStack {
+                    Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                        Image(systemName: "chevron.left")
+                            .foregroundColor(.white)
+                            .padding(8)
+                            .background(Color.white.opacity(0.1))
+                            .clipShape(Circle())
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(partnerName)
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        Text("ダイレクトメッセージ (暗号化)")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.leading, 8)
+                    
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.top, 10)
+                
+                // Message List
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        if messages.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "envelope.open.fill")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(.gray.opacity(0.4))
+                                Text("メッセージ履歴がありません")
+                                    .font(.callout)
+                                    .foregroundColor(.gray)
+                                Text("安全なメッシュネットワーク経由でダイレクトメッセージを送信します。")
+                                    .font(.caption)
+                                    .foregroundColor(.gray.opacity(0.7))
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 32)
+                            }
+                            .padding(.top, 60)
+                        } else {
+                            ForEach(messages) { msg in
+                                let isMe = msg.sender == myName
+                                HStack {
+                                    if isMe { Spacer() }
+                                    
+                                    VStack(alignment: isMe ? .trailing : .leading, spacing: 4) {
+                                        Text(msg.text)
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 10)
+                                            .background(isMe ? Color.blue : Color.white.opacity(0.08))
+                                            .cornerRadius(16)
+                                            .foregroundColor(.white)
+                                        
+                                        HStack(spacing: 4) {
+                                            Text("Hops: \(msg.hopCount)")
+                                            Text("•")
+                                            Text(msg.timestamp, style: .time)
+                                        }
+                                        .font(.system(size: 9))
+                                        .foregroundColor(.gray)
+                                        .padding(.horizontal, 4)
+                                    }
+                                    
+                                    if !isMe { Spacer() }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                
+                // Message Input
+                HStack(spacing: 12) {
+                    TextField("メッセージを入力...", text: $messageText)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(Color.white.opacity(0.08))
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        )
+                    
+                    Button(action: {
+                        guard !messageText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                        btManager.sendMessage(messageText, sender: myName, channel: "dm", recipient: partnerName)
+                        messageText = ""
+                    }) {
+                        Image(systemName: "paperplane.fill")
+                            .foregroundColor(.white)
+                            .padding(12)
+                            .background(Color.blue)
+                            .clipShape(Circle())
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 12)
+            }
+        }
+        .navigationBarHidden(true)
     }
 }
